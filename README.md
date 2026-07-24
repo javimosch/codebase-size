@@ -58,7 +58,7 @@ codebase-size/
 ├── codebase-size.src   # MFL source (edit here)
 ├── report.html         # HTML report template
 ├── build.sh            # embeds report, mints .mfl, compiles binary
-├── docs/readme.md      # this file
+├── README.md           # this file
 ├── AGENTS.md           # agent notes
 └── .gitignore
 ```
