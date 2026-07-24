@@ -1,5 +1,5 @@
 /codebase-size
 /codebase-size.mfl
-/src/template.src
+/src/*_template.src
 .sloc-guard/
 .DS_Store

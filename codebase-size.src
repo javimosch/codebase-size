@@ -6,9 +6,10 @@ type DirEntry struct{name string code int files int}
 type HartResponse struct{ok bool url string}
 type Artifact struct{id string owner string name string title string latest int updated int}
 type ArtifactsResponse struct{ok bool artifacts []Artifact}
-type Config struct{repo string html string owner string artifact string json_out bool hart bool list bool}
+type Config struct{repo string html string owner string artifact string compare string json_out bool hart bool list bool}
 type Scale struct{name string lo int hi int score_lo int score_hi int meaning string}
 type Summary struct{repo string class string score int bloat_grade string bloat_pct string total_files int total_lines int code_lines int comment_lines int blank_lines int avg_code int languages []DirEntry top_directories []DirEntry top_files []FileStat}
+
 func usage() {
     println("codebase-size — classify a codebase by size and publish hart reports")
     println("")
@@ -16,12 +17,15 @@ func usage() {
     println("  codebase-size <repo> [--json]")
     println("  codebase-size <repo> --html report.html")
     println("  codebase-size <repo> --hart --owner <o> --artifact <a>")
+    println("  codebase-size <repo> --compare <repo2> --html report.html")
+    println("  codebase-size <repo> --compare <repo2> --hart --owner <o> --artifact <a>")
     println("  codebase-size --list --owner <o> [--json]")
     println("")
     println("flags:")
     println("  --json              print JSON summary to stdout")
     println("  --html <file>       write a self-contained HTML report")
     println("  --hart              publish the report to hart.intrane.fr")
+    println("  --compare <repo>    compare two codebases and produce a combined report")
     println("  --list              list hart artifacts for an owner")
     println("  --owner <name>      hart owner (required with --hart or --list)")
     println("  --artifact <slug>   hart artifact slug (required with --hart)")
@@ -42,6 +46,9 @@ func parseArgs(a) (cfg) {
             i = i + 1
         } else if arg == "--hart" {
             cfg.hart = true
+        } else if arg == "--compare" {
+            if i + 1 < len(a) { cfg.compare = a[i + 1] }
+            i = i + 1
         } else if arg == "--list" {
             cfg.list = true
         } else if arg == "--owner" {
@@ -134,23 +141,6 @@ func classify(totalCode, bloated, totalFiles) (name, score, bloatTenths) {
     if score > 100 { score = 100 }
     return name, score, bloatTenths
 }
-func bloatGrade(p) (grade) {
-    if p < 2 { return "A" }
-    if p < 5 { return "B" }
-    if p < 10 { return "C" }
-    if p < 20 { return "D" }
-    return "F"
-}
-func nextClass(code) (name, target) {
-    if code < 1000 { return "already minimal", 0 }
-    if code < 10000 { return "Fragment", code - 1000 }
-    if code < 50000 { return "Snippet", code - 10000 }
-    if code < 100000 { return "Module", code - 50000 }
-    if code < 250000 { return "Service", code - 100000 }
-    if code < 500000 { return "Platform", code - 250000 }
-    if code < 1000000 { return "Monolith", code - 500000 }
-    return "Megasystem", code - 1000000
-}
 func sortEntries(entries) (sorted) {
     sorted = entries
     n := len(sorted)
@@ -186,24 +176,6 @@ func sortFiles(files) (sorted) {
         i = i + 1
     }
     return sorted
-}
-func topFiles(files, n) (out) {
-    out = []FileStat{}
-    i := 0
-    while i < n && i < len(files) {
-        out = append(out, files[i])
-        i = i + 1
-    }
-    return out
-}
-func topEntries(entries, n) (out) {
-    out = []DirEntry{}
-    i := 0
-    while i < n && i < len(entries) {
-        out = append(out, entries[i])
-        i = i + 1
-    }
-    return out
 }
 func worktreeExcludes(repo) (s) {
     s = ""
@@ -272,100 +244,6 @@ func mapToEntries(m) (entries) {
     }
     return entries
 }
-func fmtPct(part, total) (s) {
-    if total == 0 { s = "0.0"; return s }
-    tenths := part * 1000 / total
-    whole := tenths / 10
-    frac := tenths % 10
-    s = str(whole) + "." + str(frac)
-    return s
-}
-func fmtBloat(tenths) (s) {
-    whole := tenths / 10
-    frac := tenths % 10
-    s = str(whole) + "." + str(frac)
-    return s
-}
-func formatLangRows(entries, totalCode) (s) {
-    entries = sortEntries(entries)
-    s = ""
-    i := 0
-    while i < len(entries) {
-        e := entries[i]
-        s = s + "<tr><td>" + e.name + "</td><td>" + str(e.files) + "</td><td>" + str(e.code) + "</td><td>" + fmtPct(e.code, totalCode) + "%</td></tr>\n"
-        i = i + 1
-    }
-    return s
-}
-func formatDirRows(entries, totalCode) (s) {
-    entries = sortEntries(entries)
-    s = ""
-    i := 0
-    while i < len(entries) {
-        e := entries[i]
-        s = s + "<tr><td>" + e.name + "</td><td>" + str(e.files) + "</td><td>" + str(e.code) + "</td><td>" + fmtPct(e.code, totalCode) + "%</td></tr>\n"
-        i = i + 1
-    }
-    return s
-}
-func formatFileRows(files) (s) {
-    files = sortFiles(files)
-    s = ""
-    limit := 25
-    if len(files) < limit { limit = len(files) }
-    i := 0
-    while i < limit {
-        f := files[i]
-        s = s + "<tr><td>" + str(i + 1) + "</td><td>" + f.path + "</td><td>" + str(f.code) + "</td><td>" + str(f.total) + "</td></tr>\n"
-        i = i + 1
-    }
-    return s
-}
-func formatScaleRows(className) (s) {
-    s = ""
-    sc := scales()
-    i := 0
-    while i < len(sc) {
-        e := sc[i]
-        hi := "+"
-        if e.hi > 0 { hi = "< " + str(e.hi) }
-        row := "<tr><td>" + e.name + "</td><td>" + str(e.lo) + " - " + hi + "</td><td>" + str(e.score_lo) + " - " + str(e.score_hi) + "</td><td>" + e.meaning + "</td></tr>\n"
-        if e.name == className {
-            row = "<tr style='background:rgba(245,158,11,.12)'><td><strong>" + e.name + "</strong></td><td><strong>" + str(e.lo) + " - " + hi + "</strong></td><td><strong>" + str(e.score_lo) + " - " + str(e.score_hi) + "</strong></td><td><strong>" + e.meaning + "</strong></td></tr>\n"
-        }
-        s = s + row
-        i = i + 1
-    }
-    return s
-}
-func buildReport(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) (html) {
-    nextName, target := nextClass(codeLines)
-    avgCode := 0
-    if len(files) > 0 { avgCode = codeLines / len(files) }
-    html = report_template()
-    html = replace(html, "{{REPO}}", cfg.repo)
-    html = replace(html, "{{CLASS_NAME}}", className)
-    html = replace(html, "{{MASS_SCORE}}", str(score))
-    html = replace(html, "{{BLOAT_GRADE}}", grade)
-    html = replace(html, "{{BLOAT_PCT}}", fmtBloat(bloatTenths))
-    html = replace(html, "{{BLOATED_FILES}}", str(bloated))
-    html = replace(html, "{{TOTAL_FILES}}", str(len(files)))
-    html = replace(html, "{{TOTAL_LINES}}", str(totalLines))
-    html = replace(html, "{{CODE_LINES}}", str(codeLines))
-    html = replace(html, "{{COMMENT_LINES}}", str(commentLines))
-    html = replace(html, "{{BLANK_LINES}}", str(blankLines))
-    html = replace(html, "{{AVG_CODE}}", str(avgCode))
-    html = replace(html, "{{CODE_PCT}}", fmtPct(codeLines, totalLines))
-    html = replace(html, "{{COMMENT_PCT}}", fmtPct(commentLines, totalLines))
-    html = replace(html, "{{BLANK_PCT}}", fmtPct(blankLines, totalLines))
-    html = replace(html, "{{NEXT_CLASS}}", nextName)
-    html = replace(html, "{{NEXT_TARGET}}", str(target))
-    html = replace(html, "{{LANG_ROWS}}", formatLangRows(langEntries, codeLines))
-    html = replace(html, "{{TOP_DIR_ROWS}}", formatDirRows(dirEntries, codeLines))
-    html = replace(html, "{{TOP_FILE_ROWS}}", formatFileRows(files))
-    html = replace(html, "{{SCALE_ROWS}}", formatScaleRows(className))
-    return html
-}
 func publish(html, owner, artifact) (url) {
     u := "https://hart.intrane.fr/v1/publish?owner=" + owner + "&artifact=" + artifact + "&visibility=unlisted"
     status, body, err := http_request("POST", u, []string{"content-type: text/html"}, html)
@@ -381,7 +259,7 @@ func publish(html, owner, artifact) (url) {
     url = r.url
     return url
 }
-func listReports(owner, asJson) (txt) {
+func listReports(owner, jsonMode) (txt) {
     u := "https://hart.intrane.fr/v1/artifacts?owner=" + owner
     status, body, err := http_request("GET", u, []string{}, "")
     if status != 200 || len(err) > 0 {
@@ -393,7 +271,7 @@ func listReports(owner, asJson) (txt) {
         println("hart list returned error:", body)
         exit(1)
     }
-    if asJson {
+    if jsonMode {
         txt = json(r)
         return txt
     }
@@ -406,57 +284,16 @@ func listReports(owner, asJson) (txt) {
     }
     return txt
 }
-func makeSummary(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) (s) {
-    avgCode := 0
-    if len(files) > 0 { avgCode = codeLines / len(files) }
-    s = Summary{
-        repo: cfg.repo,
-        class: className,
-        score: score,
-        bloat_grade: grade,
-        bloat_pct: fmtBloat(bloatTenths),
-        total_files: len(files),
-        total_lines: totalLines,
-        code_lines: codeLines,
-        comment_lines: commentLines,
-        blank_lines: blankLines,
-        avg_code: avgCode,
-        languages: topEntries(langEntries, 10),
-        top_directories: topEntries(dirEntries, 20),
-        top_files: topFiles(files, 25)
-    }
+func scanAndSummarize(repoCfg, repo) (s) {
+    files, totalLines, codeLines, commentLines, blankLines, bloated, dirs, langEntries := scan(repo)
+    dirEntries := mapToEntries(dirs)
+    className, score, bloatTenths := classify(codeLines, bloated, len(files))
+    grade := bloatGrade(bloatTenths / 10)
+    files = sortFiles(files)
+    langEntries = sortEntries(langEntries)
+    dirEntries = sortEntries(dirEntries)
+    s = makeSummary(repoCfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries)
     return s
-}
-func printSummary(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) {
-    avgCode := 0
-    if len(files) > 0 { avgCode = codeLines / len(files) }
-    nextName, target := nextClass(codeLines)
-    println("repo:", cfg.repo)
-    println("class:", className, "· mass score:", score, "/ 100")
-    println("bloat grade:", grade, "(", bloated, "of", len(files), "files exceed 500 LOC =", fmtBloat(bloatTenths), "%)")
-    println("files:", len(files), "total:", totalLines, "code:", codeLines, "comment:", commentLines, "blank:", blankLines, "avg:", avgCode)
-    println("next class:", nextName, "· remove", target, "code lines")
-    println("--- languages ---")
-    i := 0
-    while i < len(langEntries) && i < 10 {
-        e := langEntries[i]
-        println(e.name, e.code, "(" + fmtPct(e.code, codeLines) + "%)")
-        i = i + 1
-    }
-    println("--- top directories ---")
-    i = 0
-    while i < len(dirEntries) && i < 10 {
-        e := dirEntries[i]
-        println(e.name, e.code, "(" + fmtPct(e.code, codeLines) + "%)")
-        i = i + 1
-    }
-    println("--- top files ---")
-    i = 0
-    while i < len(files) && i < 10 {
-        f := files[i]
-        println(str(i + 1) + ".", f.path, f.code)
-        i = i + 1
-    }
 }
 func main() {
     a := args()
@@ -468,6 +305,28 @@ func main() {
     cfg.artifact = sanitizeArtifact(cfg.artifact)
     if cfg.list {
         println(listReports(cfg.owner, cfg.json_out))
+        return
+    }
+    if len(cfg.compare) > 0 {
+        left := scanAndSummarize(cfg, cfg.repo)
+        rightCfg := Config{repo: cfg.compare}
+        right := scanAndSummarize(rightCfg, cfg.compare)
+        if cfg.json_out {
+            println(json(compareSummary(cfg, left, right)))
+            return
+        }
+        html := buildCompareReport(cfg, left, right)
+        if len(cfg.html) > 0 {
+            write_file(cfg.html, html)
+            println("wrote", cfg.html)
+        }
+        if cfg.hart {
+            url := publish(html, cfg.owner, cfg.artifact)
+            println("published:", url)
+        }
+        if !cfg.json_out && len(cfg.html) == 0 && !cfg.hart {
+            println("compare: use --html or --hart to output a report")
+        }
         return
     }
     files, totalLines, codeLines, commentLines, blankLines, bloated, dirs, langEntries := scan(cfg.repo)
