@@ -32,6 +32,10 @@ native binary named `codebase-size`.
 ./codebase-size /path/to/repo \
   --hart --owner my-name --artifact my-project
 
+# list all hart reports shipped by an owner
+./codebase-size --list --owner my-name
+./codebase-size --list --owner my-name --json
+
 # machine-readable JSON summary
 ./codebase-size /path/to/repo --json
 ```

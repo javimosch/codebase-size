@@ -28,6 +28,7 @@ mints `codebase-size.mfl` with `machin encode`, and compiles to `codebase-size`.
 
 - **Add a CLI flag** — extend `Config`, `parseArgs`, and `main` in
   `codebase-size.src`.
+- **List hart reports** — `codebase-size --list --owner <o>` uses `listReports()`.
 - **Change the HTML report** — edit `report.html`, then `./build.sh`. Add new
   markers in `report.html` and fill them in `buildReport`.
 - **Tune the size scale** — edit `scales()` and `classify()` in

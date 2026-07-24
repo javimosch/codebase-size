@@ -5,7 +5,9 @@ type FileStat struct{path string language string total int code int comment int 
 type Report struct{top_files []FileStat}
 type DirEntry struct{name string code int files int}
 type HartResponse struct{ok bool url string}
-type Config struct{repo string html string owner string artifact string json_out bool hart bool}
+type Artifact struct{id string owner string name string title string latest int updated int}
+type ArtifactsResponse struct{ok bool artifacts []Artifact}
+type Config struct{repo string html string owner string artifact string json_out bool hart bool list bool}
 type Scale struct{name string lo int hi int score_lo int score_hi int meaning string}
 type Summary struct{repo string class string score int bloat_grade string bloat_pct string total_files int total_lines int code_lines int comment_lines int blank_lines int avg_code int languages []DirEntry top_directories []DirEntry top_files []FileStat}
 
@@ -16,12 +18,14 @@ func usage() {
     println("  codebase-size <repo> [--json]")
     println("  codebase-size <repo> --html report.html")
     println("  codebase-size <repo> --hart --owner <o> --artifact <a>")
+    println("  codebase-size --list --owner <o> [--json]")
     println("")
     println("flags:")
     println("  --json              print JSON summary to stdout")
     println("  --html <file>       write a self-contained HTML report")
     println("  --hart              publish the report to hart.intrane.fr")
-    println("  --owner <name>      hart owner (required with --hart)")
+    println("  --list              list hart artifacts for an owner")
+    println("  --owner <name>      hart owner (required with --hart or --list)")
     println("  --artifact <slug>   hart artifact slug (required with --hart)")
 }
 
@@ -41,6 +45,8 @@ func parseArgs(a) (cfg) {
             i = i + 1
         } else if arg == "--hart" {
             cfg.hart = true
+        } else if arg == "--list" {
+            cfg.list = true
         } else if arg == "--owner" {
             if i + 1 < len(a) { cfg.owner = a[i + 1] }
             i = i + 1
@@ -57,6 +63,10 @@ func parseArgs(a) (cfg) {
     }
     if cfg.hart && (len(cfg.owner) == 0 || len(cfg.artifact) == 0) {
         println("--hart requires --owner and --artifact")
+        exit(2)
+    }
+    if cfg.list && len(cfg.owner) == 0 {
+        println("--list requires --owner")
         exit(2)
     }
     return cfg
@@ -363,6 +373,32 @@ func publish(html, owner, artifact) (url) {
     return url
 }
 
+func listReports(owner, asJson) (txt) {
+    u := "https://hart.intrane.fr/v1/artifacts?owner=" + owner
+    status, body, err := http_request("GET", u, []string{}, "")
+    if status != 200 || len(err) > 0 {
+        println("hart list failed:", status, err, body)
+        exit(1)
+    }
+    r := parse(body, ArtifactsResponse{})
+    if r.ok == false {
+        println("hart list returned error:", body)
+        exit(1)
+    }
+    if asJson {
+        txt = json(r)
+        return txt
+    }
+    txt = ""
+    i := 0
+    while i < len(r.artifacts) {
+        a := r.artifacts[i]
+        txt = txt + a.id + "  latest=v" + str(a.latest) + "  updated=" + str(a.updated) + "\n"
+        i = i + 1
+    }
+    return txt
+}
+
 func makeSummary(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) (s) {
     avgCode := 0
     if len(files) > 0 { avgCode = codeLines / len(files) }
@@ -424,6 +460,10 @@ func main() {
         exit(0)
     }
     cfg := parseArgs(a)
+    if cfg.list {
+        println(listReports(cfg.owner, cfg.json_out))
+        return
+    }
     files, totalLines, codeLines, commentLines, blankLines, bloated, dirs, langEntries := scan(cfg.repo)
     dirEntries := mapToEntries(dirs)
     className, score, bloatTenths := classify(codeLines, bloated, len(files))
