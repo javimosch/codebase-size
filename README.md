@@ -3,7 +3,7 @@
 A native machin CLI that measures a codebase, classifies it by size, and
 publishes a self-contained HTML report to [hart.intrane.fr](https://hart.intrane.fr).
 
-It delegates counting to [sloc-guard](https://github.com/javimosch/sloc-guard) so
+It delegates counting to [sloc-guard](https://github.com/doraemonkeys/sloc-guard) so
 it does not re-implement SLOC parsing. The added value is the **size class** and
 **mass score** — a single number/name pair that tells an AI agent (or a human)
 how heavy the codebase is and how much context it will cost.
