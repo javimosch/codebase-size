@@ -68,6 +68,16 @@ func parseArgs(a) (cfg) {
     }
     return cfg
 }
+func sanitizeArtifact(a) (out) {
+    out = a
+    if len(a) < 2 { return out }
+    if has_prefix(a, "v") {
+        rest := substr(a, 1, len(a))
+        n := parse_int(rest)
+        if str(n) == rest { out = a + "-codebase" }
+    }
+    return out
+}
 func dirOf(path) (d) {
     parts := split(path, "/")
     if len(parts) > 6 {
@@ -455,6 +465,7 @@ func main() {
         exit(0)
     }
     cfg := parseArgs(a)
+    cfg.artifact = sanitizeArtifact(cfg.artifact)
     if cfg.list {
         println(listReports(cfg.owner, cfg.json_out))
         return
