@@ -1,6 +1,5 @@
 // codebase-size — classify a codebase by total LOC and generate hart reports.
 // Uses sloc-guard for counting; ships as a single native machin binary.
-
 type FileStat struct{path string language string total int code int comment int blank int}
 type Report struct{top_files []FileStat}
 type DirEntry struct{name string code int files int}
@@ -10,7 +9,6 @@ type ArtifactsResponse struct{ok bool artifacts []Artifact}
 type Config struct{repo string html string owner string artifact string json_out bool hart bool list bool}
 type Scale struct{name string lo int hi int score_lo int score_hi int meaning string}
 type Summary struct{repo string class string score int bloat_grade string bloat_pct string total_files int total_lines int code_lines int comment_lines int blank_lines int avg_code int languages []DirEntry top_directories []DirEntry top_files []FileStat}
-
 func usage() {
     println("codebase-size — classify a codebase by size and publish hart reports")
     println("")
@@ -28,7 +26,6 @@ func usage() {
     println("  --owner <name>      hart owner (required with --hart or --list)")
     println("  --artifact <slug>   hart artifact slug (required with --hart)")
 }
-
 func parseArgs(a) (cfg) {
     cfg = Config{}
     cfg.repo = "."
@@ -71,7 +68,6 @@ func parseArgs(a) (cfg) {
     }
     return cfg
 }
-
 func dirOf(path) (d) {
     parts := split(path, "/")
     if len(parts) > 6 {
@@ -81,7 +77,6 @@ func dirOf(path) (d) {
     }
     return d
 }
-
 func slice(xs, lo, hi) (out) {
     out = []string{}
     i := lo
@@ -91,7 +86,6 @@ func slice(xs, lo, hi) (out) {
     }
     return out
 }
-
 func scales() (s) {
     s = []Scale{}
     s = append(s, Scale{name:"Fragment", lo:0, hi:1000, score_lo:0, score_hi:10, meaning:"Fits in a single prompt"})
@@ -104,7 +98,6 @@ func scales() (s) {
     s = append(s, Scale{name:"Galaxy", lo:1000000, hi:0, score_lo:98, score_hi:100, meaning:"Multiple products or decades of growth"})
     return s
 }
-
 func classify(totalCode, bloated, totalFiles) (name, score, bloatTenths) {
     if totalFiles == 0 { return "Empty", 0, 0 }
     raw := bloated * 10000 / totalFiles
@@ -131,7 +124,6 @@ func classify(totalCode, bloated, totalFiles) (name, score, bloatTenths) {
     if score > 100 { score = 100 }
     return name, score, bloatTenths
 }
-
 func bloatGrade(p) (grade) {
     if p < 2 { return "A" }
     if p < 5 { return "B" }
@@ -139,7 +131,6 @@ func bloatGrade(p) (grade) {
     if p < 20 { return "D" }
     return "F"
 }
-
 func nextClass(code) (name, target) {
     if code < 1000 { return "already minimal", 0 }
     if code < 10000 { return "Fragment", code - 1000 }
@@ -150,7 +141,6 @@ func nextClass(code) (name, target) {
     if code < 1000000 { return "Monolith", code - 500000 }
     return "Megasystem", code - 1000000
 }
-
 func sortEntries(entries) (sorted) {
     sorted = entries
     n := len(sorted)
@@ -169,7 +159,6 @@ func sortEntries(entries) (sorted) {
     }
     return sorted
 }
-
 func sortFiles(files) (sorted) {
     sorted = files
     n := len(sorted)
@@ -188,7 +177,6 @@ func sortFiles(files) (sorted) {
     }
     return sorted
 }
-
 func topFiles(files, n) (out) {
     out = []FileStat{}
     i := 0
@@ -198,7 +186,6 @@ func topFiles(files, n) (out) {
     }
     return out
 }
-
 func topEntries(entries, n) (out) {
     out = []DirEntry{}
     i := 0
@@ -208,9 +195,30 @@ func topEntries(entries, n) (out) {
     }
     return out
 }
-
+func worktreeExcludes(repo) (s) {
+    s = ""
+    c, out, err := exec("git -C " + repo + " worktree list --porcelain")
+    if c != 0 || len(err) > 0 { return s }
+    lines := split(out, "\n")
+    i := 0
+    while i < len(lines) {
+        line := lines[i]
+        if has_prefix(line, "worktree ") {
+            path := substr(line, 9, len(line))
+            if path != repo && has_prefix(path, repo + "/") {
+                rel := substr(path, len(repo) + 1, len(path))
+                if len(rel) > 0 {
+                    s = s + " -x '**/" + rel + "/**'"
+                }
+            }
+        }
+        i = i + 1
+    }
+    return s
+}
 func scan(repo) (files, totalLines, codeLines, commentLines, blankLines, bloated, dirs, langEntries) {
-    cmd := "sloc-guard stats files -f json " + repo + " --no-config -x node_modules -x .git -x coverage -x uploads -x data -x '*.db' -x 'in-memoria*'"
+    excludes := worktreeExcludes(repo)
+    cmd := "sloc-guard stats files -f json " + repo + " --no-config -x '**/node_modules/**' -x '**/.git/**' -x '**/coverage/**' -x '**/uploads/**' -x '**/data/**' -x '**/*.db' -x '**/in-memoria*'" + excludes
     c, out, err := exec(cmd)
     if c != 0 || len(err) > 0 {
         println("sloc-guard failed:", err)
@@ -244,7 +252,6 @@ func scan(repo) (files, totalLines, codeLines, commentLines, blankLines, bloated
     langEntries = mapToEntries(langs)
     return files, totalLines, codeLines, commentLines, blankLines, bloated, dirs, langEntries
 }
-
 func mapToEntries(m) (entries) {
     entries = []DirEntry{}
     ks := keys(m)
@@ -255,7 +262,6 @@ func mapToEntries(m) (entries) {
     }
     return entries
 }
-
 func fmtPct(part, total) (s) {
     if total == 0 { s = "0.0"; return s }
     tenths := part * 1000 / total
@@ -264,14 +270,12 @@ func fmtPct(part, total) (s) {
     s = str(whole) + "." + str(frac)
     return s
 }
-
 func fmtBloat(tenths) (s) {
     whole := tenths / 10
     frac := tenths % 10
     s = str(whole) + "." + str(frac)
     return s
 }
-
 func formatLangRows(entries, totalCode) (s) {
     entries = sortEntries(entries)
     s = ""
@@ -283,7 +287,6 @@ func formatLangRows(entries, totalCode) (s) {
     }
     return s
 }
-
 func formatDirRows(entries, totalCode) (s) {
     entries = sortEntries(entries)
     s = ""
@@ -295,7 +298,6 @@ func formatDirRows(entries, totalCode) (s) {
     }
     return s
 }
-
 func formatFileRows(files) (s) {
     files = sortFiles(files)
     s = ""
@@ -309,7 +311,6 @@ func formatFileRows(files) (s) {
     }
     return s
 }
-
 func formatScaleRows(className) (s) {
     s = ""
     sc := scales()
@@ -327,7 +328,6 @@ func formatScaleRows(className) (s) {
     }
     return s
 }
-
 func buildReport(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) (html) {
     nextName, target := nextClass(codeLines)
     avgCode := 0
@@ -356,7 +356,6 @@ func buildReport(cfg, className, score, bloatTenths, grade, bloated, files, tota
     html = replace(html, "{{SCALE_ROWS}}", formatScaleRows(className))
     return html
 }
-
 func publish(html, owner, artifact) (url) {
     u := "https://hart.intrane.fr/v1/publish?owner=" + owner + "&artifact=" + artifact + "&visibility=unlisted"
     status, body, err := http_request("POST", u, []string{"content-type: text/html"}, html)
@@ -372,7 +371,6 @@ func publish(html, owner, artifact) (url) {
     url = r.url
     return url
 }
-
 func listReports(owner, asJson) (txt) {
     u := "https://hart.intrane.fr/v1/artifacts?owner=" + owner
     status, body, err := http_request("GET", u, []string{}, "")
@@ -398,7 +396,6 @@ func listReports(owner, asJson) (txt) {
     }
     return txt
 }
-
 func makeSummary(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) (s) {
     avgCode := 0
     if len(files) > 0 { avgCode = codeLines / len(files) }
@@ -420,7 +417,6 @@ func makeSummary(cfg, className, score, bloatTenths, grade, bloated, files, tota
     }
     return s
 }
-
 func printSummary(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) {
     avgCode := 0
     if len(files) > 0 { avgCode = codeLines / len(files) }
@@ -452,7 +448,6 @@ func printSummary(cfg, className, score, bloatTenths, grade, bloated, files, tot
         i = i + 1
     }
 }
-
 func main() {
     a := args()
     if len(a) <= 1 {
