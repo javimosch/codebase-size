@@ -1,7 +1,8 @@
 # codebase-size
 
 A native machin CLI that measures a codebase, classifies it by size, and
-publishes a self-contained HTML report to [hart.intrane.fr](https://hart.intrane.fr).
+publishes a self-contained HTML report to [hart.intrane.fr](https://hart.intrane.fr)
+via [machin-hart](https://github.com/javimosch/machin-hart).
 
 It delegates counting to [sloc-guard](https://github.com/doraemonkeys/sloc-guard) so
 it does not re-implement SLOC parsing. The added value is the **size class** and
