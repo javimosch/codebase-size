@@ -8,7 +8,7 @@ type Artifact struct{id string owner string name string title string latest int 
 type ArtifactsResponse struct{ok bool artifacts []Artifact}
 type Config struct{repo string html string owner string artifact string compare string json_out bool hart bool list bool}
 type Scale struct{name string lo int hi int score_lo int score_hi int meaning string}
-type Summary struct{repo string class string score int bloat_grade string bloat_pct string total_files int total_lines int code_lines int comment_lines int blank_lines int avg_code int languages []DirEntry top_directories []DirEntry top_files []FileStat}
+type Summary struct{repo string class string score int bloat_grade string bloat_pct string total_files int total_lines int code_lines int comment_lines int blank_lines int avg_code int bloated_files int file_distribution []int languages []DirEntry top_directories []DirEntry top_files []FileStat}
 
 func usage() {
     println("codebase-size — classify a codebase by size and publish hart reports")

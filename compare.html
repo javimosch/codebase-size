@@ -233,6 +233,18 @@ td.file-cell {
 </section>
 
 <section>
+  <h2>File-size shape</h2>
+  <p class="muted">How files are distributed by code-line count. The 500 LOC cliff is the red line.</p>
+  <div class="chart">{{FILE_DISTRIBUTION}}</div>
+</section>
+
+<section>
+  <h2>Context health</h2>
+  <div class="chart">{{CONTEXT_HEALTH}}</div>
+  <div class="table-wrap" style="margin-top:1rem">{{MASS_BREAKDOWN}}</div>
+</section>
+
+<section>
   <h2>Top directories</h2>
   <div class="table-wrap">
     <table>

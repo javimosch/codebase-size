@@ -130,6 +130,17 @@ func buildReport(cfg, className, score, bloatTenths, grade, bloated, files, tota
 func makeSummary(cfg, className, score, bloatTenths, grade, bloated, files, totalLines, codeLines, commentLines, blankLines, dirEntries, langEntries) (s) {
     avgCode := 0
     if len(files) > 0 { avgCode = codeLines / len(files) }
+    fileDist := []int{0, 0, 0, 0, 0}
+    i := 0
+    while i < len(files) {
+        c := files[i].code
+        if c < 100 { fileDist[0] = fileDist[0] + 1 }
+        else if c < 300 { fileDist[1] = fileDist[1] + 1 }
+        else if c < 500 { fileDist[2] = fileDist[2] + 1 }
+        else if c < 1000 { fileDist[3] = fileDist[3] + 1 }
+        else { fileDist[4] = fileDist[4] + 1 }
+        i = i + 1
+    }
     s = Summary{
         repo: cfg.repo,
         class: className,
@@ -142,6 +153,8 @@ func makeSummary(cfg, className, score, bloatTenths, grade, bloated, files, tota
         comment_lines: commentLines,
         blank_lines: blankLines,
         avg_code: avgCode,
+        bloated_files: bloated,
+        file_distribution: fileDist,
         languages: topEntries(langEntries, 10),
         top_directories: topEntries(dirEntries, 20),
         top_files: topFiles(files, 25)

@@ -135,6 +135,57 @@ func compareClamp(n) (c) {
     else { c = n }
     return c
 }
+func compareBucketPct(count, total) (p) {
+    if total == 0 { p = 0; return p }
+    p = count * 100 / total
+    return p
+}
+func compareFileDistribution(left, right) (s) {
+    labels := []string{"< 100", "100–299", "300–499", "500–999", "1000+"}
+    colors := []string{"#22c55e", "#38bdf8", "#fbbf24", "#f87171", "#ef4444"}
+    s = ""
+    i := 0
+    while i < len(labels) {
+        lc := left.file_distribution[i]
+        rc := right.file_distribution[i]
+        lp := compareBucketPct(lc, left.total_files)
+        rp := compareBucketPct(rc, right.total_files)
+        s = s + "<div class=\"lang-row\"><div class=\"lang-label\"><span>" + labels[i] + " LOC</span><span class=\"lang-nums\">" + str(lc) + " (" + str(lp) + "%) &middot; " + str(rc) + " (" + str(rp) + "%)</span></div><div class=\"lang-bars\"><div class=\"lang-bar left\" style=\"width:" + str(lp) + "%; background: " + colors[i] + "\"></div><div class=\"lang-bar right\" style=\"width:" + str(rp) + "%; background: " + colors[i] + "\"></div></div></div>"
+        i = i + 1
+    }
+    return s
+}
+func compareContextHealth(left, right) (s) {
+    s = "<ul>"
+    s = s + "<li><strong>" + compareBasename(left.repo) + "</strong>: " + left.bloat_pct + "% of files (" + str(left.bloated_files) + "/" + str(left.total_files) + ") exceed 500 LOC — bloat grade <strong>" + left.bloat_grade + "</strong>.</li>"
+    s = s + "<li><strong>" + compareBasename(right.repo) + "</strong>: " + right.bloat_pct + "% of files (" + str(right.bloated_files) + "/" + str(right.total_files) + ") exceed 500 LOC — bloat grade <strong>" + right.bloat_grade + "</strong>.</li>"
+    if left.bloated_files > 0 || right.bloated_files > 0 {
+        leftCliff := left.total_files / (left.bloated_files + 1)
+        rightCliff := right.total_files / (right.bloated_files + 1)
+        s = s + "<li>That means roughly <strong>1 in " + str(leftCliff) + "</strong> files opened in " + compareBasename(left.repo) + " is a context cliff, vs <strong>1 in " + str(rightCliff) + "</strong> in " + compareBasename(right.repo) + " (lower is worse).</li>"
+    }
+    if left.bloat_grade == right.bloat_grade {
+        s = s + "<li>Both repos have the same bloat grade, but the one with fewer oversized files per total is more agent-friendly.</li>"
+    } else if left.bloated_files * right.total_files > right.bloated_files * left.total_files {
+        s = s + "<li><strong>" + compareBasename(right.repo) + "</strong> has the more agent-friendly file shape: a smaller share of its files force context chunking.</li>"
+    } else {
+        s = s + "<li><strong>" + compareBasename(left.repo) + "</strong> has the more agent-friendly file shape: a smaller share of its files force context chunking.</li>"
+    }
+    s = s + "<li>For agents, the better trade-off is <strong>more files with less bloat</strong>, as long as each file stays a coherent unit.</li>"
+    s = s + "</ul>"
+    return s
+}
+func compareMassBreakdown(left, right) (s) {
+    leftPenalty := left.bloated_files * 20 / left.total_files
+    rightPenalty := right.bloated_files * 20 / right.total_files
+    leftBase := left.score - leftPenalty
+    rightBase := right.score - rightPenalty
+    s = "<table><thead><tr><th>repo</th><th>size base</th><th>bloat penalty</th><th>mass score</th></tr></thead><tbody>"
+    s = s + "<tr><td>" + compareBasename(left.repo) + "</td><td>" + str(leftBase) + "</td><td>+" + str(leftPenalty) + "</td><td><strong>" + str(left.score) + "</strong></td></tr>"
+    s = s + "<tr><td>" + compareBasename(right.repo) + "</td><td>" + str(rightBase) + "</td><td>+" + str(rightPenalty) + "</td><td><strong>" + str(right.score) + "</strong></td></tr>"
+    s = s + "</tbody></table>"
+    return s
+}
 func buildCompareReport(cfg, left, right) (html) {
     leftName := compareBasename(cfg.repo)
     rightName := compareBasename(cfg.compare)
@@ -162,6 +213,9 @@ func buildCompareReport(cfg, left, right) (html) {
     html = replace(html, "{{LEFT_BLOAT}}", left.bloat_grade)
     html = replace(html, "{{RIGHT_BLOAT}}", right.bloat_grade)
     html = replace(html, "{{LANG_CHART}}", compareLangRows(left.languages, right.languages))
+    html = replace(html, "{{FILE_DISTRIBUTION}}", compareFileDistribution(left, right))
+    html = replace(html, "{{CONTEXT_HEALTH}}", compareContextHealth(left, right))
+    html = replace(html, "{{MASS_BREAKDOWN}}", compareMassBreakdown(left, right))
     html = replace(html, "{{TOP_DIR_ROWS}}", compareTopDirRows(left.top_directories, right.top_directories))
     html = replace(html, "{{TOP_FILE_ROWS}}", compareTopFileRows(left.top_files, right.top_files))
     return html
