@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{REPO}} - codebase size report</title>
+<style>
+:root {
+  --bg: #0b1020;
+  --surface: #111827;
+  --surface-2: #1f2937;
+  --ink: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #38bdf8;
+  --accent-2: #818cf8;
+  --caution: #f59e0b;
+  --critical: #ef4444;
+  --ok: #22c55e;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;
+    --ink: #0f172a;
+    --muted: #475569;
+    --accent: #0284c7;
+    --accent-2: #4f46e5;
+    --caution: #d97706;
+    --critical: #dc2626;
+    --ok: #16a34a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+header { margin-bottom: 2rem; }
+h1 { font-size: 1.8rem; margin: 0 0 .5rem; letter-spacing: -.02em; }
+h2 { font-size: 1.25rem; margin: 2rem 0 .75rem; color: var(--accent); }
+h3 { font-size: 1rem; margin: 1.5rem 0 .5rem; color: var(--accent-2); }
+p { max-width: 65ch; }
+.muted { color: var(--muted); }
+
+.hero {
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: .75rem;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: center;
+}
+@media (max-width: 640px) { .hero-grid { grid-template-columns: 1fr; } }
+.class-name {
+  display: inline-block;
+  font-size: .875rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: .4rem .8rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--caution), var(--critical));
+  color: #fff;
+}
+.score-display { margin: .75rem 0; }
+.score-num { font-size: 3.5rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+.score-label { color: var(--muted); font-size: .875rem; }
+
+.score-bar {
+  position: relative;
+  height: 1rem;
+  background: var(--surface-2);
+  border-radius: .5rem;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+.score-bar-fill {
+  height: 100%;
+  width: {{MASS_SCORE}}%;
+  background: linear-gradient(90deg, var(--ok) 0%, var(--caution) 60%, var(--critical) 100%);
+  border-radius: .5rem;
+}
+.score-marker {
+  position: absolute;
+  top: -4px;
+  left: {{MASS_SCORE}}%;
+  width: 4px;
+  height: calc(100% + 8px);
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.spectrum {
+  display: flex;
+  height: .5rem;
+  border-radius: .25rem;
+  overflow: hidden;
+  margin: .75rem 0 .25rem;
+}
+.spectrum > div { height: 100%; }
+.spectrum-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: .625rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: .5rem;
+  padding: 1rem;
+}
+.kpi .num {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.kpi .label { font-size: .875rem; color: var(--muted); }
+.kpi.critical .num { color: var(--critical); }
+.kpi.caution .num { color: var(--caution); }
+
+.bar-wrap { background: var(--surface-2); border-radius: .25rem; height: .75rem; overflow: hidden; margin-top: .5rem; }
+.bar { height: 100%; border-radius: .25rem; }
+
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+th, td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid var(--surface-2); }
+th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: .75rem; letter-spacing: .04em; }
+td { font-variant-numeric: tabular-nums; }
+tr:nth-child(even) td { background: var(--surface); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: .5rem;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+.card p, .card li { max-width: 75ch; }
+ul { padding-left: 1.25rem; }
+li { margin: .35rem 0; }
+
+.pill {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 600;
+  padding: .15rem .5rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.pill.critical { background: rgba(239,68,68,.15); color: var(--critical); }
+.pill.caution { background: rgba(245,158,11,.15); color: var(--caution); }
+.pill.ok { background: rgba(34,197,94,.15); color: var(--ok); }
+
+.footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--surface-2); font-size: .875rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>{{REPO}} codebase size report</h1>
+    <p class="muted">Generated by codebase-size &middot; excludes node_modules, .git, coverage, uploads, data, *.db, in-memoria files &middot; counts are non-blank/non-comment source lines unless noted.</p>
+  </header>
+
+  <section class="hero">
+    <div class="hero-grid">
+      <div>
+        <span class="class-name">{{CLASS_NAME}}</span>
+        <div class="score-display">
+          <span class="score-num">{{MASS_SCORE}}</span><span class="score-label"> / 100 mass score</span>
+        </div>
+        <p><strong>{{TOTAL_FILES}} files &middot; {{CODE_LINES}} code lines</strong> - this codebase is large enough that no agent can hold the whole thing in context at once. The primary metric to move is <strong>total LOC</strong>.</p>
+        <p class="muted">Bloat grade: <strong>{{BLOAT_GRADE}}</strong> &middot; {{BLOATED_FILES}} files exceed 500 LOC ({{BLOAT_PCT}}%) &middot; next class down (<strong>{{NEXT_CLASS}}</strong>) requires removing {{NEXT_TARGET}} code lines.</p>
+      </div>
+      <div>
+        <div class="score-bar"><div class="score-bar-fill"></div><div class="score-marker"></div></div>
+        <div class="spectrum">
+          <div style="width:3.3%;background:#22c55e"></div>
+          <div style="width:5%;background:#4ade80"></div>
+          <div style="width:11.7%;background:#a3e635"></div>
+          <div style="width:10%;background:#facc15"></div>
+          <div style="width:16.7%;background:#fbbf24"></div>
+          <div style="width:16.7%;background:#fb923c"></div>
+          <div style="width:16.7%;background:#f87171"></div>
+          <div style="width:20%;background:#ef4444"></div>
+        </div>
+        <div class="spectrum-labels">
+          <span>Fragment</span><span>Snippet</span><span>Module</span><span>Service</span><span>Platform</span><span>Monolith</span><span>Megasystem</span><span>Galaxy</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The number that matters: total LOC</h2>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="num">{{TOTAL_LINES}}</div><div class="label">total lines</div></div>
+      <div class="kpi"><div class="num">{{CODE_LINES}}</div><div class="label">code lines</div></div>
+      <div class="kpi"><div class="num">{{COMMENT_LINES}}</div><div class="label">comment lines</div></div>
+      <div class="kpi"><div class="num">{{BLANK_LINES}}</div><div class="label">blank lines</div></div>
+      <div class="kpi"><div class="num">{{TOTAL_FILES}}</div><div class="label">files</div></div>
+      <div class="kpi critical"><div class="num">{{BLOATED_FILES}}</div><div class="label">files &gt; 500 LOC</div></div>
+    </div>
+    <div class="bar-wrap"><div class="bar" style="width:{{CODE_PCT}}%; background:var(--accent)"></div></div>
+    <p class="muted" style="margin-top:.25rem">{{CODE_PCT}}% of all lines are code &middot; {{BLANK_PCT}}% blank &middot; {{COMMENT_PCT}}% comments &middot; {{AVG_CODE}} code lines per file</p>
+  </section>
+
+  <section>
+    <h2>Size classification scale</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>class</th><th>code lines</th><th>mass score</th><th>meaning</th></tr>
+        {{SCALE_ROWS}}
+      </table>
+    </div>
+    <p class="muted">Mass score combines size class (from total code LOC) with a bloat penalty derived from the percentage of files that exceed 500 LOC.</p>
+  </section>
+
+  <section>
+    <h2>By language</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>language</th><th>files</th><th>code lines</th><th>% of code</th></tr>
+        {{LANG_ROWS}}
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Heavy directories</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>directory</th><th>files</th><th>code lines</th><th>% of code</th></tr>
+        {{TOP_DIR_ROWS}}
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Largest files by code lines <span class="pill critical">{{BLOATED_FILES}} files exceed 500 LOC</span></h2>
+    <p class="muted">Top 25 shown.</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>rank</th><th>file</th><th>code lines</th><th>total lines</th></tr>
+        {{TOP_FILE_ROWS}}
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Refactor focus: ship less code</h2>
+    <div class="card">
+      <h3>Goal: move down one size class</h3>
+      <p>This codebase is a <strong>{{CLASS_NAME}} ({{MASS_SCORE}}/100)</strong>. The immediate goal is to get below the next threshold and become a <strong>{{NEXT_CLASS}}</strong>. That means removing at least <strong>{{NEXT_TARGET}}</strong> code lines without replacing them.</p>
+    </div>
+    <div class="card">
+      <h3>Quick wins</h3>
+      <ul>
+        <li><strong>Delete dead code first.</strong> Look for old/backends, duplicate components, and one-off scripts that are no longer reachable.</li>
+        <li><strong>Merge duplicates.</strong> Parallel implementations (e.g. v4/v5 styles, assistant managers) share a single core.</li>
+        <li><strong>Split every file &gt; 500 LOC.</strong> Each oversized file is a forced context window; extract sub-components, routes, or services.</li>
+        <li><strong>Track a LOC budget.</strong> Set a maximum total code line count per release and make deletion the first step of every refactor.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="footer">
+    <p>Report generated by codebase-size &middot; mass score {{MASS_SCORE}}/100 &middot; class {{CLASS_NAME}}</p>
+  </div>
+</div>
+</body>
+</html>
