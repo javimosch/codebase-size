@@ -1,0 +1,179 @@
+type CompareSummary struct{left Summary right Summary delta_files int delta_code_lines int delta_score int size_ratio string}
+
+func compareClassColor(name) (c) {
+    if name == "Fragment" || name == "Snippet" { return "ok" }
+    if name == "Module" || name == "Service" || name == "Platform" { return "caution" }
+    return "critical"
+}
+func compareBasename(path) (name) {
+    parts := split(path, "/")
+    name = parts[len(parts) - 1]
+    return name
+}
+func compareDelta(a, b) (s) {
+    d := b - a
+    if d >= 0 { s = "+" + str(d) } else { s = str(d) }
+    return s
+}
+func compareRatio(a, b) (s) {
+    if a == 0 { s = "—"; return s }
+    r := b * 100 / a
+    whole := r / 100
+    frac := r % 100
+    if frac < 10 { s = str(whole) + ".0" + str(frac) + "x" }
+    else { s = str(whole) + "." + str(frac) + "x" }
+    return s
+}
+func comparePct(part, max) (p) {
+    if max == 0 { p = 0; return p }
+    p = part * 100 / max
+    if p < 1 { p = 1 }
+    if p > 100 { p = 100 }
+    return p
+}
+func compareFindLang(name, entries) (code, files) {
+    i := 0
+    while i < len(entries) {
+        e := entries[i]
+        if e.name == name { return e.code, e.files }
+        i = i + 1
+    }
+    return 0, 0
+}
+func compareLangRows(leftLangs, rightLangs) (s) {
+    s = ""
+    combined := []DirEntry{}
+    i := 0
+    while i < len(leftLangs) {
+        e := leftLangs[i]
+        ce := DirEntry{name: e.name, code: e.code, files: e.files}
+        rc, rf := compareFindLang(e.name, rightLangs)
+        ce.code = ce.code + rc
+        ce.files = ce.files + rf
+        combined = append(combined, ce)
+        i = i + 1
+    }
+    i = 0
+    while i < len(rightLangs) {
+        e := rightLangs[i]
+        _, lf := compareFindLang(e.name, leftLangs)
+        if lf == 0 {
+            combined = append(combined, DirEntry{name: e.name, code: e.code, files: e.files})
+        }
+        i = i + 1
+    }
+    combined = sortEntries(combined)
+    maxCode := 1
+    i = 0
+    while i < len(combined) {
+        ce := combined[i]
+        lc, _ := compareFindLang(ce.name, leftLangs)
+        rc, _ := compareFindLang(ce.name, rightLangs)
+        if lc > maxCode { maxCode = lc }
+        if rc > maxCode { maxCode = rc }
+        i = i + 1
+    }
+    i = 0
+    while i < len(combined) {
+        ce := combined[i]
+        lc, lf := compareFindLang(ce.name, leftLangs)
+        rc, rf := compareFindLang(ce.name, rightLangs)
+        lp := comparePct(lc, maxCode)
+        rp := comparePct(rc, maxCode)
+        s = s + "<div class=\"lang-row\"><div class=\"lang-label\"><span>" + ce.name + "</span><span class=\"lang-nums\">" + str(lc) + " &middot; " + str(rc) + "</span></div><div class=\"lang-bars\"><div class=\"lang-bar left\" style=\"width:" + str(lp) + "%\"></div><div class=\"lang-bar right\" style=\"width:" + str(rp) + "%\"></div></div></div>"
+        i = i + 1
+    }
+    return s
+}
+func compareMax(a, b) (m) {
+    if a > b { return a }
+    return b
+}
+func compareTopDirRows(left, right) (s) {
+    s = ""
+    leftTop := topEntries(left, 5)
+    rightTop := topEntries(right, 5)
+    n := compareMax(len(leftTop), len(rightTop))
+    i := 0
+    while i < n {
+        le := leftTop[i]
+        re := rightTop[i]
+        ln := "—"
+        lc := ""
+        rn := "—"
+        rc := ""
+        if i < len(leftTop) { ln = le.name; lc = str(le.code) }
+        if i < len(rightTop) { rn = re.name; rc = str(re.code) }
+        s = s + "<tr><td>" + str(i + 1) + "</td><td>" + ln + "</td><td>" + lc + "</td><td>" + rn + "</td><td>" + rc + "</td></tr>\n"
+        i = i + 1
+    }
+    return s
+}
+func compareTopFileRows(left, right) (s) {
+    s = ""
+    leftTop := topFiles(left, 5)
+    rightTop := topFiles(right, 5)
+    n := compareMax(len(leftTop), len(rightTop))
+    i := 0
+    while i < n {
+        lf := leftTop[i]
+        rf := rightTop[i]
+        lp := "—"
+        lc := ""
+        rp := "—"
+        rc := ""
+        if i < len(leftTop) { lp = lf.path; lc = str(lf.code) }
+        if i < len(rightTop) { rp = rf.path; rc = str(rf.code) }
+        s = s + "<tr><td>" + str(i + 1) + "</td><td class=\"file-cell\" title=\"" + lp + "\">" + lp + "</td><td>" + lc + "</td><td class=\"file-cell\" title=\"" + rp + "\">" + rp + "</td><td>" + rc + "</td></tr>\n"
+        i = i + 1
+    }
+    return s
+}
+func compareClamp(n) (c) {
+    if n < 0 { c = 0 }
+    else if n > 100 { c = 100 }
+    else { c = n }
+    return c
+}
+func buildCompareReport(cfg, left, right) (html) {
+    leftName := compareBasename(cfg.repo)
+    rightName := compareBasename(cfg.compare)
+    leftScore := compareClamp(left.score)
+    rightScore := compareClamp(right.score)
+    html = compare_template()
+    html = replace(html, "{{LEFT_NAME}}", leftName)
+    html = replace(html, "{{RIGHT_NAME}}", rightName)
+    html = replace(html, "{{DELTA_FILES}}", compareDelta(left.total_files, right.total_files))
+    html = replace(html, "{{DELTA_CODE}}", compareDelta(left.code_lines, right.code_lines))
+    html = replace(html, "{{RATIO}}", compareRatio(left.code_lines, right.code_lines))
+    html = replace(html, "{{DELTA_SCORE}}", compareDelta(left.score, right.score))
+    html = replace(html, "{{LEFT_CLASS}}", left.class)
+    html = replace(html, "{{RIGHT_CLASS}}", right.class)
+    html = replace(html, "{{LEFT_CLASS_COLOR}}", compareClassColor(left.class))
+    html = replace(html, "{{RIGHT_CLASS_COLOR}}", compareClassColor(right.class))
+    html = replace(html, "{{LEFT_SCORE}}", str(left.score))
+    html = replace(html, "{{RIGHT_SCORE}}", str(right.score))
+    html = replace(html, "{{LEFT_SCORE_PCT}}", str(leftScore))
+    html = replace(html, "{{RIGHT_SCORE_PCT}}", str(rightScore))
+    html = replace(html, "{{LEFT_FILES}}", str(left.total_files))
+    html = replace(html, "{{RIGHT_FILES}}", str(right.total_files))
+    html = replace(html, "{{LEFT_CODE}}", str(left.code_lines))
+    html = replace(html, "{{RIGHT_CODE}}", str(right.code_lines))
+    html = replace(html, "{{LEFT_BLOAT}}", left.bloat_grade)
+    html = replace(html, "{{RIGHT_BLOAT}}", right.bloat_grade)
+    html = replace(html, "{{LANG_CHART}}", compareLangRows(left.languages, right.languages))
+    html = replace(html, "{{TOP_DIR_ROWS}}", compareTopDirRows(left.top_directories, right.top_directories))
+    html = replace(html, "{{TOP_FILE_ROWS}}", compareTopFileRows(left.top_files, right.top_files))
+    return html
+}
+func compareSummary(cfg, left, right) (s) {
+    s = CompareSummary{
+        left: left,
+        right: right,
+        delta_files: right.total_files - left.total_files,
+        delta_code_lines: right.code_lines - left.code_lines,
+        delta_score: right.score - left.score,
+        size_ratio: compareRatio(left.code_lines, right.code_lines)
+    }
+    return s
+}
