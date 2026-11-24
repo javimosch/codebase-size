@@ -200,7 +200,12 @@ func worktreeExcludes(repo) (s) {
 }
 func scan(repo) (files, totalLines, codeLines, commentLines, blankLines, bloated, dirs, langEntries) {
     excludes := worktreeExcludes(repo)
-    cmd := "sloc-guard stats files -f json " + repo + " --no-config -x '**/node_modules/**' -x '**/.git/**' -x '**/coverage/**' -x '**/uploads/**' -x '**/data/**' -x '**/*.db' -x '**/in-memoria*'" + excludes
+    // sloc-guard has no built-in machin support: register .src/.mfl (// comments)
+    // as a custom language and add them (plus .h) to the counted extensions.
+    cfgPath := "/tmp/codebase-size-sloc.toml"
+    cfgText := "version = \"2\"\n[content]\nextensions = [\"rs\",\"go\",\"c\",\"h\",\"cpp\",\"java\",\"kt\",\"scala\",\"cs\",\"js\",\"ts\",\"tsx\",\"jsx\",\"vue\",\"swift\",\"dart\",\"py\",\"rb\",\"php\",\"lua\",\"sh\",\"src\",\"mfl\"]\n[languages.machin]\nextensions = [\"src\",\"mfl\"]\nsingle_line_comments = [\"//\"]\nmulti_line_comments = [[\"/*\",\"*/\"]]\n"
+    write_file(cfgPath, cfgText)
+    cmd := "sloc-guard stats files -f json " + repo + " -c " + cfgPath + " -x '**/node_modules/**' -x '**/.git/**' -x '**/coverage/**' -x '**/uploads/**' -x '**/data/**' -x '**/*.db' -x '**/in-memoria*'" + excludes
     c, out, err := exec(cmd)
     if c != 0 || len(err) > 0 {
         println("sloc-guard failed:", err)
